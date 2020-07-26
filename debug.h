@@ -1,5 +1,5 @@
-#ifndef clox_debug_h
-#define clox_debug_h
+#ifndef cInterp_debug_h
+#define cInterp_debug_h
 #include "chunk.h"
 
 void disassembleChunk(Chunk* chunk, const char* name );

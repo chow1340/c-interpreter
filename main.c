@@ -4,11 +4,16 @@
 #include "memory.c"
 #include <stdio.h>
 #include "debug.c"
+#include "value.c"
+#include "value.h"
 
 int main(int argc, const char* argv[]) {
     Chunk chunk;
     initChunk(&chunk);
-    writeChunk(&chunk, OP_RETURN);
+    int constant= addConstant(&chunk, 1.2);
+    writeChunk(&chunk, OP_CONSTANT, 123);
+    writeChunk(&chunk, constant, 123);
+    // writeChunk(&chunk, OP_RETURN);
     disassembleChunk(&chunk, "jeff");
     freeChunk(&chunk);
 
