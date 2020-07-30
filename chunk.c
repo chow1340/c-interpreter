@@ -29,16 +29,18 @@ void writeChunk(Chunk* chunk, uint8_t byte, int line){
         return;
     }
 
-    //expand linecount if necessary
+    //expand linecapacity if necessary
     if(chunk->lineCapacity < chunk->lineCount + 1){
         int oldCapacity = chunk->lineCapacity;
         chunk->lineCapacity = GROW_CAPACITY(oldCapacity);
         chunk->lines = GROW_ARRAY(LineStart,chunk->lines , oldCapacity, chunk->lineCapacity);
     }
-
-    LineStart* lineStart = &chunk->lines[chunk->lineCount];
+    //Update lines struct for chunk
+    //Offset marks the first byte in that line, 
+    //any bytes after that are considered the same line
+    LineStart* lineStart = &chunk->lines[chunk->lineCount]; 
     chunk->lineCount++;
-    lineStart->offset = chunk->count - 1;
+    lineStart->offset = chunk->count - 1; 
     lineStart->line = line;
 }
 
@@ -73,7 +75,7 @@ int getLine(Chunk* chunk, int instruction){
     int end = chunk->lineCount - 1;
 
     while(true){
-        int mid = start+end/2;
+        int mid = (start+end)/2;
         LineStart* line = &chunk->lines[mid];
         if(instruction < line->offset){
             end = mid-1;

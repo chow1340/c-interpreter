@@ -5,14 +5,14 @@
 #include "chunk.h"
 #include "value.h"
 
-#define STACK_MAX 256
 
 
 typedef struct{
     Chunk* chunk;
     u_int8_t* ip;
-    Value stack[STACK_MAX];
-    Value* stackTop;
+    Value* stack;
+    int stackCount;
+    int stackCapacity;
 } VM;
 
 typedef enum{
@@ -25,6 +25,6 @@ void initVM();
 void freeVM();
 void push();
 Value pop();
-InterpretResult interpret(Chunk* chunk);
+InterpretResult interpret(const char* source);
 
 #endif
