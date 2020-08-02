@@ -1,9 +1,6 @@
 #ifndef cInterp_scanner_h
 #define cInterp_scanner_h
 
-#include "common.h"
-
-
 typedef struct {
     const char* start; //marks the beginning of the current lexeme
     const char* current; //current character being looked at
@@ -13,8 +10,8 @@ typedef struct {
 typedef enum {
     //Single-char
     TOKEN_LEFT_PAREN, TOKEN_RIGHT_PAREN, TOKEN_LEFT_BRACE,TOKEN_RIGHT_BRACE,
-    TOKEN_COMMA, TOKEN_DOT, TOKEN_MINUS, TOKEN_PLUS, TOKEN_SEMICOLIN, TOKEN_SLASH,
-    TOKEN_STAR,
+    TOKEN_COMMA, TOKEN_DOT, TOKEN_MINUS, TOKEN_PLUS, 
+    TOKEN_SEMICOLON, TOKEN_SLASH, TOKEN_STAR,
 
     //One or two char
     TOKEN_BANG, TOKEN_BANG_EQUAL, TOKEN_EQUAL, TOKEN_EQUAL_EQUAL, 
@@ -43,4 +40,5 @@ typedef struct {
 
 void initScanner(const char* source);
 Token scanToken();
+
 #endif

@@ -1,6 +1,10 @@
 #ifndef cInterp_compiler_h
 #define cInterp_compiler_h
 
-void compile(const char* source);
+#include "vm.h"
+#include "scanner.h"
+
+
+bool compile(const char* source, Chunk* chunk);
 
 #endif

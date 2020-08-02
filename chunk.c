@@ -61,7 +61,7 @@ void writeConstant(Chunk* chunk, Value value, int line){
     //if 1 byte, use the OP_CONSTANT    
     if(index < 256){
         writeChunk(chunk, OP_CONSTANT, line);
-        writeChunk(chunk, value, line);
+        writeChunk(chunk, index, line);
     }else{
         //Uses little endian to break the 24 bit constant
         writeChunk(chunk, OP_CONSTANT_LONG, line);

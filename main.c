@@ -1,18 +1,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
 #include "common.h"
-#include "chunk.c"
+#include "chunk.h"
 #include "debug.h"
-#include "memory.c"
-#include "debug.c"
-#include "value.c"
-#include "value.h"
-#include "value.h"
-#include "vm.c"
 #include "vm.h"
-
 static void repl(){
     char line[1024];
     while(true){
@@ -75,27 +67,7 @@ int main(int argc, const char* argv[]) {
         fprintf(stderr, "Usage: cInterp [path]\n");
         exit(64);
     }
-    // Chunk chunk;
-    // initChunk(&chunk);
-
-    // int constant= addConstant(&chunk, 1);
-    // writeChunk(&chunk, OP_CONSTANT, 123);
-    // writeChunk(&chunk, constant, 123);
-
-    // constant= addConstant(&chunk, 2);
-    // writeChunk(&chunk, OP_CONSTANT, 124);
-    // writeChunk(&chunk, constant, 124);  
-    // writeChunk(&chunk, OP_MULTIPLY, 126);
-
-    // constant = addConstant(&chunk, 3);
-    // writeChunk(&chunk, OP_CONSTANT, 126);
-    // writeChunk(&chunk, constant, 126);
-
-    // writeChunk(&chunk, OP_ADD, 123);
-    // interpret(&chunk);
     
-    // disassembleChunk(&chunk, "jeff");
-
     freeVM();
     // freeChunk(&chunk);
  

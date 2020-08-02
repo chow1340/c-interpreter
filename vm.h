@@ -4,7 +4,7 @@
 #include "common.h"
 #include "chunk.h"
 #include "value.h"
-
+#include "compiler.h"
 
 
 typedef struct{

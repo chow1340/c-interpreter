@@ -1,8 +1,9 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "scanner.h"
 #include "common.h"
+#include "scanner.h"
+
 
 Scanner scanner;
 
@@ -175,7 +176,7 @@ Token scanToken(){
         case ')': return makeToken(TOKEN_RIGHT_PAREN);
         case '{': return makeToken(TOKEN_LEFT_BRACE);
         case '}': return makeToken(TOKEN_RIGHT_BRACE);
-        case ';': return makeToken(TOKEN_SEMICOLIN);
+        case ';': return makeToken(TOKEN_SEMICOLON);
         case ',': return makeToken(TOKEN_COMMA);
         case '.': return makeToken(TOKEN_DOT);
         case '-': return makeToken(TOKEN_MINUS);

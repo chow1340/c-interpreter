@@ -3,13 +3,32 @@
 #include "debug.h"
 #include  "chunk.h"
 #include "memory.h"
+#include "value.h"
 #include "compiler.h"
-#include "compiler.c"
+#include <stdio.h>
+#include <stdarg.h>
+
+
+
 VM vm;
 
 //resets the stackTop pointer to the initial stack pointer
 static void resetStack(){
     vm.stackCount = 0;
+}
+
+static void runtimeError(const char* format, ...){
+    va_list args;
+    va_start(args, format);
+    vfprintf(stderr, format, args);
+    va_end(args);
+    fputs("\n", stderr);
+
+    size_t instruction =  vm.ip-vm.chunk->code-1;
+    int line = getLine(vm.chunk, instruction);
+    fprintf(stderr, "[line %d] in script \n", line);
+
+    resetStack();
 }
 
 void initVM(){
@@ -37,16 +56,32 @@ Value pop(){
     return vm.stack[vm.stackCount];
 }
 
+static Value peek(int distance){
+    Value a = vm.stack[vm.stackCount];
+    Value b = vm.stack[vm.stackCount - 1 - 1];
+    return vm.stack[vm.stackCount -1 - distance];
+}
+
+bool isFalsey(Value value){
+    return IS_NIL(value) || (IS_BOOL(value) && !AS_BOOL(value));
+}
+
+
+
 static InterpretResult run(){
     //vm.ip is the instruction pointer : 
         // Which byte is it about to execute?
     #define READ_BYTE() (*vm.ip++)
     #define READ_CONSTANT() (vm.chunk->constants.values[READ_BYTE()]) 
-    #define BINARY_OP(op) \
+    #define BINARY_OP(valueType, op) \
         do { \
-            double b = pop(); \
-            double a = pop(); \
-            push(a op b); \
+            if(!IS_NUMBER(peek(0)) || !IS_NUMBER(peek(1))){ \
+                runtimeError("Operands must be numbers"); \
+                return INTERPRET_RUNTIME_ERR;\
+            }\
+            double b = AS_NUM(pop()); \
+            double a = AS_NUM(pop()); \
+            push(valueType(a op b)); \
         } while(false) 
     
     while(true){
@@ -76,20 +111,42 @@ static InterpretResult run(){
             
             case OP_NEGATE:
                 //Makes the top number negative
-                push(-pop());
+                if(!IS_NUMBER(peek(0))){
+                    runtimeError("Operand must be a number");
+                    return INTERPRET_RUNTIME_ERR;
+                }
+                push(NUMBER_VAL(-AS_NUM(pop())));
                 break;
             case OP_ADD:
-                BINARY_OP(+);
+                BINARY_OP(NUMBER_VAL,+);
                 break;
             case OP_SUBTRACT:
-                BINARY_OP(-);
+                BINARY_OP(NUMBER_VAL,-);
                 break;
             case OP_MULTIPLY:
-                BINARY_OP(*);
+                BINARY_OP(NUMBER_VAL,*);
                 break;
             case OP_DIVIDE:
-                BINARY_OP(/);
+                BINARY_OP(NUMBER_VAL,/);
                 break;
+            case OP_NIL:
+                push(NIL_VAL); break;
+            case OP_TRUE:
+                push(BOOL_VAL(true)); break;
+            case OP_FALSE:
+                push(BOOL_VAL(false)); break;
+            case OP_NOT:
+                push(BOOL_VAL(isFalsey(pop()))); break;
+            case OP_EQUAL: {
+                Value b = pop();
+                Value a = pop();
+                push(BOOL_VAL(valuesEqual(a,b)));
+                break;
+            }
+            case OP_GREATER:
+                BINARY_OP(BOOL_VAL, >);  break;
+            case OP_LESS:
+                BINARY_OP(BOOL_VAL, <); break;
         }
     }
     #undef READ_BYTE 
@@ -97,6 +154,18 @@ static InterpretResult run(){
 }
 
 InterpretResult interpret(const char* source){
-    compile(source);
-    return INTERPRET_OK;
+    Chunk chunk;
+    initChunk(&chunk);
+    //pass chunk in for compile
+    if(!compile(source, &chunk)) {
+        freeChunk(&chunk);
+        return INTERPRET_COMPILE_ERR;
+    }
+    vm.chunk = &chunk;
+    vm.ip = vm.chunk->code; 
+
+    InterpretResult result = run();
+
+    freeChunk(&chunk);
+    return result;
 }

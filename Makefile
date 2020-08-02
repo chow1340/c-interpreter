@@ -1,26 +1,28 @@
 CC = gcc
-FLAGS = -c
+CFLAGS = -c -g
 
 OBJ = main
 
 all: $(OBJ)
 
-$(OBJ): main.o vm.o debug.o chunk.o scanner.o value.o memory.o 
+$(OBJ): main.o vm.o debug.o chunk.o scanner.o value.o memory.o compiler.o
 
 vm.o: vm.c 
-	$(CC) $(FLAGS) vm.c 
+	$(CC) $(CFLAGS) vm.c 
 main.o: main.c
-	$(CC) $(FLAGS) main.c
+	$(CC) $(CFLAGS) main.c
 debug.o: debug.c
-	$(CC) $(FLAGS) debug.c
+	$(CC) $(CFLAGS) debug.c
 chunk.o: chunk.c
-	$(CC) $(FLAGS) chunk.c
+	$(CC) $(CFLAGS) chunk.c
 scanner.o: scanner.c
-	$(CC) $(FLAGS) scanner.c
+	$(CC) $(CFLAGS) scanner.c
 value.o: value.c
-	$(CC) $(FLAGS) value.c
+	$(CC) $(CFLAGS) value.c
 memory.o: memory.c
-	$(CC) $(FLAGS) memory.c
+	$(CC) $(CFLAGS) memory.c
+compiler.o: compiler.c
+	$(CC) $(CFLAGS) compiler.c
 
 exec:
 	./main
