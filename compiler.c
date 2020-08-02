@@ -119,6 +119,7 @@ static void emitReturn(){
 
 
 static void emitConstant(Value value){
+    printf("emit");
     emitBytes(OP_CONSTANT, makeConstant(value));
 }
 
@@ -148,6 +149,8 @@ static void parsePrecedence(Precedence precedence){
         return;
     }
 
+    prefixRule();
+
     //If next token is too low precedence, 
     //or isn't an infix operator, we are done
 
@@ -156,11 +159,10 @@ static void parsePrecedence(Precedence precedence){
         ParseFn infixRule = getRule(parser.previous.type)->infix;
         infixRule();
     }
-
-    prefixRule();
 }
 
 static void number(){
+    // printf("number");
     double value = strtod(parser.previous.start, NULL);
     emitConstant(NUMBER_VAL(value));
 }
@@ -185,17 +187,18 @@ static void unary(){
 
 
 static void binary(){
+    //   printf("binary");
     //Rmr operator
     TokenType operatorType = parser.previous.type;
 
     //Compile the right operand
     //i.e for 2*3+4, only need 2*3 not 2*(3+4)
     ParseRule* rule = getRule(operatorType);
-    parsePrecedence((Precedence)(rule->precedence + 1));
+    parsePrecedence((Precedence)(rule->precedence+1));
 
     //Emit the operation instruction
     switch(operatorType){
-        case TOKEN_PLUS: emitByte(OP_ADD); break;
+        case TOKEN_PLUS: emitByte(OP_ADD); printf("add"); break;
         case TOKEN_MINUS: emitByte(OP_SUBTRACT); break;
         case TOKEN_STAR: emitByte(OP_MULTIPLY); break;
         case TOKEN_SLASH: emitByte(OP_DIVIDE);break;
