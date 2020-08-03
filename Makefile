@@ -5,7 +5,7 @@ OBJ = main
 
 all: $(OBJ)
 
-$(OBJ): main.o vm.o debug.o chunk.o scanner.o value.o memory.o compiler.o
+$(OBJ): main.o vm.o debug.o chunk.o scanner.o value.o memory.o compiler.o object.o
 
 vm.o: vm.c 
 	$(CC) $(CFLAGS) vm.c 
@@ -23,6 +23,8 @@ memory.o: memory.c
 	$(CC) $(CFLAGS) memory.c
 compiler.o: compiler.c
 	$(CC) $(CFLAGS) compiler.c
+object.o: object.c
+	$(CC) $(CFLAGS) object.c
 
 exec:
 	./main

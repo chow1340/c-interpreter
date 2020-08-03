@@ -70,6 +70,5 @@ int main(int argc, const char* argv[]) {
     
     freeVM();
     // freeChunk(&chunk);
- 
     return 0;
 }

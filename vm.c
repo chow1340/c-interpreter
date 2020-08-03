@@ -1,17 +1,19 @@
 #include "vm.h"
 #include "common.h"
 #include "debug.h"
-#include  "chunk.h"
+#include "chunk.h"
 #include "memory.h"
 #include "value.h"
 #include "compiler.h"
+#include "object.h"
 #include <stdio.h>
 #include <stdarg.h>
-
+#include <string.h>
 
 
 VM vm;
 
+Obj* objects;
 //resets the stackTop pointer to the initial stack pointer
 static void resetStack(){
     vm.stackCount = 0;
@@ -34,11 +36,12 @@ static void runtimeError(const char* format, ...){
 void initVM(){
     vm.stackCapacity = 0;
     vm.stackCount = 0;
+    vm.objects = NULL;
     resetStack();
 }
 
 void freeVM(){
-
+    freeObjects();
 }
 
 void push(Value value){
@@ -66,6 +69,19 @@ bool isFalsey(Value value){
     return IS_NIL(value) || (IS_BOOL(value) && !AS_BOOL(value));
 }
 
+static void concatenate(){
+    ObjString* aString = AS_STRING(pop());
+    ObjString* bString = AS_STRING(pop());
+
+    int length = aString->length + bString->length;
+    char* chars = ALLOCATE(char, length +1);
+    memcpy(chars, aString->chars, aString->length);
+    memcpy(chars + aString->length, bString->chars, bString->length);
+    chars[length] = '\0';
+    
+    ObjString* result = takeString(chars, length);
+    push(OBJ_VAL(result));
+}
 
 
 static InterpretResult run(){
@@ -118,7 +134,12 @@ static InterpretResult run(){
                 push(NUMBER_VAL(-AS_NUM(pop())));
                 break;
             case OP_ADD:
-                BINARY_OP(NUMBER_VAL,+);
+                if(IS_STRING(peek(0)) && IS_STRING(peek(1))) {
+                    concatenate();
+                } else {
+                    BINARY_OP(NUMBER_VAL,+);
+                }
+              
                 break;
             case OP_SUBTRACT:
                 BINARY_OP(NUMBER_VAL,-);

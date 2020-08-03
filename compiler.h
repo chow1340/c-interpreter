@@ -3,7 +3,7 @@
 
 #include "vm.h"
 #include "scanner.h"
-
+#include "object.h"
 
 bool compile(const char* source, Chunk* chunk);
 

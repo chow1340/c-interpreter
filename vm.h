@@ -13,6 +13,7 @@ typedef struct{
     Value* stack;
     int stackCount;
     int stackCapacity;
+    Obj* objects;
 } VM;
 
 typedef enum{
@@ -26,5 +27,7 @@ void freeVM();
 void push();
 Value pop();
 InterpretResult interpret(const char* source);
+
+extern VM vm;
 
 #endif
