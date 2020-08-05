@@ -13,8 +13,8 @@ static void repl(){
             printf("\n");
             break;
         }
+        interpret(line);
     }
-    interpret(line);
 }
 
 //Goal is to allocate a string large enough to read the file

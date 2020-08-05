@@ -5,6 +5,7 @@
 #include "chunk.h"
 #include "value.h"
 #include "compiler.h"
+#include "table.h"
 
 
 typedef struct{
@@ -13,6 +14,8 @@ typedef struct{
     Value* stack;
     int stackCount;
     int stackCapacity;
+    Table strings;
+    Table globals;
     Obj* objects;
 } VM;
 

@@ -2,6 +2,7 @@
 #define cInterp_object_h
 #include "common.h"
 #include "value.h"
+#include "table.h"
 
 #define OBJ_TYPE(value) (AS_OBJ(value)->type)
 #define IS_STRING(value) (isObjType(value, OBJ_STRING))
@@ -21,6 +22,7 @@ struct sObjString {
     Obj obj;
     int length;
     char* chars;
+    uint32_t hash;
 };
 
 //Not a macro because it would evaluate twice.
