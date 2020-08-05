@@ -191,6 +191,7 @@ static InterpretResult run(){
                     runtimeError("Undefined variable '%s' .",  name->chars);
                     return INTERPRET_RUNTIME_ERR;
                 }
+                const char* string = AS_CSTRING(value);
                 push(value);
                 break;
             }
