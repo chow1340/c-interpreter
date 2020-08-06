@@ -1,5 +1,5 @@
-var food = "bagels";
-var beverage = "drink";
-var breakfast = food + "with" + beverage;
-
-print breakfast;
+var a = 3;
+var b = 3;
+var c = 4;
+var d = 5;
+print a*b+c*d;

@@ -44,9 +44,9 @@ void initVM(){
 }
 
 void freeVM(){
-    freeObjects();
     freeTable(&vm.strings);
     freeTable(&vm.globals);
+    freeObjects();
 }
 
 void push(Value value){
@@ -73,8 +73,8 @@ bool isFalsey(Value value){
 }
 
 static void concatenate(){
-    ObjString* aString = AS_STRING(pop());
     ObjString* bString = AS_STRING(pop());
+    ObjString* aString = AS_STRING(pop());
 
     int length = aString->length + bString->length;
     char* chars = ALLOCATE(char, length +1);
@@ -191,7 +191,6 @@ static InterpretResult run(){
                     runtimeError("Undefined variable '%s' .",  name->chars);
                     return INTERPRET_RUNTIME_ERR;
                 }
-                const char* string = AS_CSTRING(value);
                 push(value);
                 break;
             }

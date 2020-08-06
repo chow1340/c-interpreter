@@ -343,6 +343,8 @@ static void varDeclarations(){
     defineVariable(global);
 }
 
+//Evaluates the expression and then discards the result
+//i.e brunch = "bagel"; eat(brunch);
 static void expressionStatement(){
     expression();
     consume(TOKEN_SEMICOLON, "Expect ';' after expression");
