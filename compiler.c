@@ -153,6 +153,25 @@ static void emitConstant(Value value){
     emitBytes(OP_CONSTANT, makeConstant(value));
 }
 
+static void patchJump(int offset){
+    // -2 to adjust for bytecode for offset jump itself
+    int jump = currentChunk()->count-offset-2;
+    if(jump > UINT16_MAX) {
+        error("Too much code to jump over");
+    }
+    //replace the two bytes with then statement
+    currentChunk()->code[offset] = (jump >> 8) & 0xff;
+    currentChunk()->code[offset+1] = jump & 0xff;
+}
+
+static int emitJump(uint8_t instruction) {
+    emitByte(instruction); //placeholder operand
+    //Two bytes for jump offset
+    emitByte(0xff); 
+    emitByte(0xff);
+    return currentChunk()->count - 2;
+}
+
 static void endCompiler(){
     emitReturn();
     #ifdef DEBUG_PRINT_CODE
@@ -467,6 +486,26 @@ static void expressionStatement(){
     emitByte(OP_POP);
 }
 
+static void ifStatement(){
+    //Compile condition expression
+    consume(TOKEN_LEFT_PAREN, "Expect '(' after 'if'.");
+    expression();
+    consume(TOKEN_RIGHT_PAREN, "Expect ')' after condition.");
+
+    //Offset to jump to if false
+    //Set an placeholder offset with thenJump, compile then statement,
+    //then come back and replace placeholder offset  with real one
+    int thenJump = emitJump(OP_JUMP_IF_FALSE);
+    emitByte(OP_POP); // pop out the condition 
+    statement();
+    int elseJump = emitJump(OP_JUMP);
+    patchJump(thenJump);
+    emitByte(OP_POP); 
+    if(match(TOKEN_ELSE)) statement();
+    patchJump(elseJump);
+
+}
+
 static void printStatement(){
     expression();
     consume(TOKEN_SEMICOLON, "Expect ';' after value");
@@ -517,6 +556,8 @@ static void statement(){
         beginScope();
         block();
         endScope();
+    } else if (match(TOKEN_IF)){
+        ifStatement();
     } else{
         expressionStatement();
     }
