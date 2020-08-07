@@ -1,5 +1,7 @@
-var a = 3;
-var b = 3;
-var c = 4;
-var d = 5;
-print a*b+c*d;
+{
+    var a = 2;
+    {
+        var b = 3;
+    }
+            print a;
+}

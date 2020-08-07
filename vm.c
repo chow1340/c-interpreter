@@ -204,6 +204,20 @@ static InterpretResult run(){
                 }
                 break;
             }
+            //Pushes the local to top
+            case OP_GET_LOCAL:{
+                uint8_t slot = READ_BYTE();
+                push(vm.stack[slot]);
+                break;
+            }
+
+            case OP_SET_LOCAL:{
+                //Sets assigned value from the top and stores in the stack slot
+                //corresponding with the local variable
+                uint8_t slot = READ_BYTE();
+                vm.stack[slot] = peek(0);
+                break;
+            }
         }
     }
     #undef READ_BYTE 
