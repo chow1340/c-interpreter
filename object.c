@@ -20,6 +20,7 @@ static Obj* allocateObject(size_t size, ObjType type) {
 
 //Creates new object on heap and initialiszes it (similar to constructors)
 static ObjString* allocateString(char* chars, int length, uint32_t hash) {
+    //Init object so vm knows type of object
     ObjString* string = ALLOCATE_OBJ(ObjString, OBJ_STRING);
     string->length = length;
     string->chars = chars;
@@ -62,5 +63,20 @@ ObjString* takeString(char* chars, int length){
         return interned;
     }
     return allocateString(chars, length, hash);
+}
+
+ObjFunction* newFunction() {
+    ObjFunction* function = ALLOCATE_OBJ(ObjFunction, OBJ_FUNCTION);
+    function->arity = 0;
+    function->name = NULL;
+    initChunk(&function->chunk);
+    return function;
+}
+
+//Constructor
+ObjNative* newNative(NativeFn function){
+    ObjNative* native = ALLOCATE_OBJ(ObjNative, OBJ_NATIVE);
+    native->function = function;
+    return native;
 }
 

@@ -51,23 +51,44 @@ typedef struct {
     int depth;
 } Local;
 
+typedef enum {
+    TYPE_FUNCTION,
+    TYPE_SCRIPT
+} FunctionType;
+
 typedef struct{
+    struct Compiler* enclosing;
+    ObjFunction* function;
+    FunctionType type;
     Local locals[UINT8_COUNT];
     int localCount;
     int scopeDepth; // 0 = global, 1 = first top level, 2 = second, etc...
-} Compiler;
+}  Compiler;
 
 Compiler* current = NULL;
 Chunk* compilingChunk;
 
 static Chunk* currentChunk(){
-    return compilingChunk;
+    return &current->function->chunk;
 }
 
-static void initCompiler(Compiler* compiler) {
+static void initCompiler(Compiler* compiler, FunctionType type) {
+    compiler->enclosing = current;
+    compiler->function = NULL; //garbage collection
+    compiler->type = type;
     compiler->localCount = 0;
     compiler->scopeDepth = 0;
+    compiler->function = newFunction();
     current = compiler;
+
+    if(type != TYPE_SCRIPT) {
+        current->function->name = copyString(parser.previous.start, parser.previous.length);
+    }
+    //claims stack slot zero for VM's own internal use
+    Local* local = &current->locals[current->localCount++];
+    local->depth = 0;
+    local->name.start = "";
+    local->name.length = 0;
 }
 
 static void errorAt(Token* token, const char* message){
@@ -144,8 +165,20 @@ static void emitBytes(uint8_t byte1, uint8_t byte2){
     emitByte(byte2);
 }
 
+static void emitLoop(int loopStart){
+    emitByte(OP_LOOP); //emit new loop insturction 
+
+    
+    int offset = currentChunk()->count-loopStart + 2;
+    if(offset > UINT16_MAX) error("Loop body too large");
+
+    emitByte((offset >> 8) & 0xff);
+    emitByte(offset & 0xff);
+}
+
 static void emitReturn(){
-    return emitByte(OP_RETURN);
+    emitByte(OP_NIL);
+    emitByte(OP_RETURN);
 }
 
 
@@ -153,6 +186,8 @@ static void emitConstant(Value value){
     emitBytes(OP_CONSTANT, makeConstant(value));
 }
 
+//Goes back into the bytecode and replaces operand at the given location
+//with the calculated offset.
 static void patchJump(int offset){
     // -2 to adjust for bytecode for offset jump itself
     int jump = currentChunk()->count-offset-2;
@@ -172,13 +207,18 @@ static int emitJump(uint8_t instruction) {
     return currentChunk()->count - 2;
 }
 
-static void endCompiler(){
+static ObjFunction* endCompiler(){
     emitReturn();
+    ObjFunction* function = current->function;
     #ifdef DEBUG_PRINT_CODE
         if(!parser.hadError){
-            disassembleChunk(currentChunk(), "code");
+            disassembleChunk(currentChunk(), 
+            function->name != NULL ? function->name->chars : "<script>" );
         }
     #endif
+
+    current = current->enclosing;
+    return function;
 }
 
 static void beginScope(){
@@ -202,7 +242,7 @@ static void expression();
 static ParseRule* getRule(TokenType type);
 static void parsePrecedence(Precedence precedence);
 static void statement();
-static void  declaration();
+static void declaration();
 
 //Starts at the current token and parses any expression 
 //at the given precendence level or higher
@@ -285,6 +325,9 @@ static void declareVariable(){
     addLocal(*name);
 }
 
+//Consumes token identifier for the variable name,
+//and adds its lexeme to the chunk's constant table as a string,
+//Then returns the index of the constant
 static uint8_t parseVariable(const char* errorMessage){
     consume(TOKEN_IDENTIFIER, errorMessage);
 
@@ -297,9 +340,11 @@ static uint8_t parseVariable(const char* errorMessage){
 }
 
 static void markInitialized(){
+    if(current->scopeDepth == 0) return;
     current->locals[current->localCount-1].depth = current->scopeDepth;
 }
 
+//Emits the bytecode
 static void defineVariable(uint8_t global){
     //Do not store if in local scope
     if(current->scopeDepth > 0) {
@@ -346,7 +391,7 @@ static void binary(bool canAssign){
 
     //Emit the operation instruction
     switch(operatorType){
-        case TOKEN_PLUS: emitByte(OP_ADD); printf("add"); break;
+        case TOKEN_PLUS: emitByte(OP_ADD); break;
         case TOKEN_MINUS: emitByte(OP_SUBTRACT); break;
         case TOKEN_STAR: emitByte(OP_MULTIPLY); break;
         case TOKEN_SLASH: emitByte(OP_DIVIDE);break;
@@ -403,9 +448,52 @@ static void variable(bool canAssign){
     namedVariable(parser.previous, canAssign);
 }
 
+static void and_(bool canAssign){
+    //If false, jump
+    int endJump = emitJump(OP_JUMP_IF_FALSE);
+
+    //Else discard left expression and evaluate right side
+    emitByte(OP_POP);
+    parsePrecedence(PREC_AND);
+
+    patchJump(endJump);
+}
+
+static void or_(bool canAssign) {
+    //if left truthy, skip right hand operand
+    int elseJump = emitJump(OP_JUMP_IF_FALSE);
+    //if left is false, continue
+    int endJump = emitJump(OP_JUMP);
+
+    patchJump(elseJump);
+    emitByte(OP_POP);
+    parsePrecedence(PREC_OR);
+    patchJump(endJump);
+}
+
+static uint8_t argumentList(){
+    uint8_t argCount = 0;
+    if(!check(TOKEN_RIGHT_PAREN)){
+        do{
+            expression();
+            if(argCount == 255) {
+                error("Cannot have more than 255 arguements");
+            }
+            argCount++;
+        }while(match(TOKEN_COMMA));
+    }
+    consume(TOKEN_RIGHT_PAREN, "Expect ')' after arguments");
+    return argCount;
+}
+
+static void call(bool canAssign){
+    uint8_t argCount = argumentList();
+    emitBytes(OP_CALL, argCount);
+}
+
 //Prefix, infix, precedence
 ParseRule rules[] = {
-    [TOKEN_LEFT_PAREN]    = { grouping, NULL,   PREC_NONE },
+    [TOKEN_LEFT_PAREN]    = { grouping, call,   PREC_CALL },
   [TOKEN_RIGHT_PAREN]   = { NULL,     NULL,   PREC_NONE },
   [TOKEN_LEFT_BRACE]    = { NULL,     NULL,   PREC_NONE }, 
   [TOKEN_RIGHT_BRACE]   = { NULL,     NULL,   PREC_NONE },
@@ -427,7 +515,7 @@ ParseRule rules[] = {
   [TOKEN_IDENTIFIER]    = { variable,     NULL,   PREC_NONE },
   [TOKEN_STRING]        = { string,     NULL,   PREC_NONE },
   [TOKEN_NUMBER]        = { number,   NULL,   PREC_NONE },
-  [TOKEN_AND]           = { NULL,     NULL,   PREC_NONE },
+  [TOKEN_AND]           = { NULL,     and_,   PREC_AND },
   [TOKEN_CLASS]         = { NULL,     NULL,   PREC_NONE },
   [TOKEN_ELSE]          = { NULL,     NULL,   PREC_NONE },
   [TOKEN_FALSE]         = { literal,     NULL,   PREC_NONE },
@@ -435,7 +523,7 @@ ParseRule rules[] = {
   [TOKEN_FUN]           = { NULL,     NULL,   PREC_NONE },
   [TOKEN_IF]            = { NULL,     NULL,   PREC_NONE },
   [TOKEN_NIL]           = { literal,     NULL,   PREC_NONE },
-  [TOKEN_OR]            = { NULL,     NULL,   PREC_NONE },
+  [TOKEN_OR]            = { NULL,     or_,   PREC_OR },
   [TOKEN_PRINT]         = { NULL,     NULL,   PREC_NONE },
   [TOKEN_RETURN]        = { NULL,     NULL,   PREC_NONE },
   [TOKEN_SUPER]         = { NULL,     NULL,   PREC_NONE },
@@ -462,6 +550,43 @@ static void block(){
     }
 
     consume(TOKEN_RIGHT_BRACE, "Expect '}' after block.");
+}
+
+//Compile the function itself
+static void function(FunctionType type){
+    //Create a seperate compiler for each function
+    Compiler compiler;
+    initCompiler(&compiler, type);
+    beginScope();
+
+    //Compile parameters
+    consume(TOKEN_LEFT_PAREN, "Expect '(' after function name");
+    if(!check(TOKEN_RIGHT_PAREN)){
+        do{
+            current->function->arity++;
+            if(current->function->arity > 255){
+                errorAtCurrent("Cannot have more than 255 parameters");
+            }
+
+            uint8_t paramConstant = parseVariable("Expect a variable name");
+            defineVariable(paramConstant);
+        } while(match(TOKEN_COMMA));    
+    } 
+    consume(TOKEN_RIGHT_PAREN, "Expect ')' after parameters");
+
+    //Compile body
+    consume(TOKEN_LEFT_BRACE, "Expect '{' before function body");
+    block();
+
+    //Create the function object;
+    ObjFunction* function = endCompiler();
+    emitBytes(OP_CONSTANT, makeConstant(OBJ_VAL(function)));
+}
+static void funDeclaration(){
+    uint8_t global = parseVariable("Expect a function name");
+    markInitialized();
+    function(TYPE_FUNCTION);
+    defineVariable(global);
 }
 
 static void varDeclarations(){
@@ -512,6 +637,24 @@ static void printStatement(){
     emitByte(OP_PRINT);
 }
 
+static void whileStatement(){
+    //Mark the start chunk
+    int loopStart = currentChunk()->count;
+    consume(TOKEN_LEFT_PAREN, "Expect '(' after while");
+    expression();
+    consume(TOKEN_RIGHT_PAREN, "Expect ')' after condition");
+
+    //Exit if condition false
+    int exitJump = emitJump(OP_JUMP_IF_FALSE);
+
+    emitByte(OP_POP);
+    statement();
+
+    emitLoop(loopStart);
+    patchJump(exitJump);
+    emitByte(OP_POP);
+}
+
 //Skips tokens until it looks like a token that ends a statement,
 //or something that begins a statement
 static void synchronize(){
@@ -539,15 +682,32 @@ static void synchronize(){
     }
 }
 
+
+
 static void declaration(){
     if(match(TOKEN_VAR)) {
         varDeclarations();
-    } else {
+    } else if (match(TOKEN_FUN)) {
+        funDeclaration();
+    }
+    else {
         statement();
     }
     if(parser.panicMode) synchronize();
 }
 
+static void returnStatement(){
+    if(current->type == TYPE_SCRIPT) {
+        error("Cannot return from top level code");
+    }
+    if(match(TOKEN_SEMICOLON)){
+        emitReturn();
+    } else {
+        expression();
+        consume(TOKEN_SEMICOLON, "Expect ';' after return value");
+        emitByte(OP_RETURN);
+    }
+}
 
 static void statement(){
     if(match(TOKEN_PRINT)){
@@ -558,22 +718,26 @@ static void statement(){
         endScope();
     } else if (match(TOKEN_IF)){
         ifStatement();
-    } else{
+    } else if (match(TOKEN_WHILE)) {
+        whileStatement();
+    } else if (match(TOKEN_RETURN)) {
+        returnStatement();
+    } else {
         expressionStatement();
     }
 }
 
-bool compile(const char* source, Chunk* chunk){
+ObjFunction* compile(const char* source){
     initScanner(source);
     Compiler compiler;
-    initCompiler(&compiler);
-    compilingChunk = chunk;
+    initCompiler(&compiler, TYPE_SCRIPT);
+    // compilingChunk = chunk;
     parser.hadError = false;
     parser.panicMode = false;
     advance();
     while(!match(TOKEN_EOF)) {
         declaration();
     }
-    endCompiler();
-    return !parser.hadError;
+    ObjFunction* function = endCompiler();
+    return parser.hadError ? NULL : function;
 }
