@@ -77,6 +77,9 @@ int disassembleInstruction(Chunk* chunk, int offset){
         case OP_ADD:
             return simpleInstruction("OP_ADD" , offset);
             break;
+        case OP_INCREMENT:
+            return simpleInstruction("OP_INCREMENT", offset);
+            break;
         case OP_SUBTRACT:
             return simpleInstruction("OP_SUBTRACT", offset);
             break;

@@ -189,6 +189,7 @@ static InterpretResult run(){
             
         #endif
         uint8_t instructions;
+
         switch(instructions = READ_BYTE()) {
             case OP_CONSTANT:{
                 Value constant = READ_CONSTANT();
@@ -226,6 +227,14 @@ static InterpretResult run(){
                 }
               
                 break;
+            case OP_INCREMENT:{
+                if(!IS_NUMBER(peek(0))){
+                    runtimeError("Value must be number");
+                    return INTERPRET_RUNTIME_ERR;
+                }
+                push(NUMBER_VAL(AS_NUM(peek(0)) + 1));
+                break;
+            }
             case OP_SUBTRACT:
                 BINARY_OP(NUMBER_VAL,-);
                 break;

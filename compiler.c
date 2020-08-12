@@ -32,6 +32,7 @@ typedef enum {
     PREC_EQUALITY, // ==
     PREC_COMPARISON, // < > <= >=
     PREC_TERM, // + -
+    PREC_INCREMENT,
     PREC_FACTOR, // * /
     PREC_UNARY, // ! -
     PREC_CALL, // . ()
@@ -164,6 +165,7 @@ static void emitBytes(uint8_t byte1, uint8_t byte2){
     emitByte(byte1);
     emitByte(byte2);
 }
+
 
 static void emitLoop(int loopStart){
     emitByte(OP_LOOP); //emit new loop insturction 
@@ -378,6 +380,9 @@ static void unary(bool canAssign){
 } 
 
 
+static void increment(bool canAssign){
+   emitByte(OP_INCREMENT);
+}
 
 static void binary(bool canAssign){
     //   printf("binary");
@@ -431,6 +436,13 @@ static void namedVariable(Token name, bool canAssign){
         arg = identifierConstant(&name);
         getOp = OP_GET_GLOBAL;
         setOp = OP_SET_GLOBAL;
+    }
+    if(canAssign && match(TOKEN_PLUS_PLUS)){
+        // expression();
+        emitBytes(getOp, (uint8_t)arg);
+        emitByte(OP_INCREMENT);
+        emitBytes(setOp, (uint8_t)arg);
+        return;
     }
     
     if(canAssign && match(TOKEN_EQUAL)) {
@@ -501,6 +513,7 @@ ParseRule rules[] = {
   [TOKEN_DOT]           = { NULL,     NULL,   PREC_NONE },
   [TOKEN_MINUS]         = { unary,    binary, PREC_TERM },
   [TOKEN_PLUS]          = { NULL,     binary, PREC_TERM },
+  [TOKEN_PLUS_PLUS]     = { variable, NULL , PREC_INCREMENT },
   [TOKEN_SEMICOLON]     = { NULL,     NULL,   PREC_NONE },
   [TOKEN_SLASH]         = { NULL,     binary, PREC_FACTOR },
   [TOKEN_STAR]          = { NULL,     binary, PREC_FACTOR },
@@ -609,6 +622,53 @@ static void expressionStatement(){
     expression();
     consume(TOKEN_SEMICOLON, "Expect ';' after expression");
     emitByte(OP_POP);
+}
+
+static void forStatement(){
+    beginScope();
+    consume(TOKEN_LEFT_PAREN, "Expect '(' after 'for'.");
+    if(match(TOKEN_SEMICOLON)) {
+        //No initalizer
+    } else if(match(TOKEN_VAR)){
+        varDeclarations();
+    } else {
+        expressionStatement();
+    }
+    
+    int loopStart = currentChunk()->count;
+    int exitJump = -1;
+    //Condition
+    if(!match(TOKEN_SEMICOLON)) {
+        expression();
+        consume(TOKEN_SEMICOLON, "Expect ';' after loop condition");
+        //Jump out of condition is false
+        exitJump = emitJump(OP_JUMP_IF_FALSE);
+        //Pop out condition when true;
+        emitByte(OP_POP);
+    }
+    //Increment
+    if(!match(TOKEN_RIGHT_PAREN)){
+        int bodyJump = emitJump(OP_JUMP);
+
+        //Compile increment
+        int incrementStart = currentChunk()->count;
+        expression();
+        emitByte(OP_POP);
+        consume(TOKEN_RIGHT_PAREN, "Expect ')' after for clauses");
+
+        //Take us back to start of for loop, before condtion
+        emitLoop(loopStart);
+        loopStart = incrementStart;
+        patchJump(bodyJump);
+    }
+
+    statement();
+    emitLoop(loopStart);
+    if(exitJump != -1) {
+        patchJump(exitJump);
+        emitByte(OP_POP);
+    }
+    endScope();
 }
 
 static void ifStatement(){
@@ -720,6 +780,8 @@ static void statement(){
         ifStatement();
     } else if (match(TOKEN_WHILE)) {
         whileStatement();
+    } else if(match(TOKEN_FOR)){
+        forStatement();
     } else if (match(TOKEN_RETURN)) {
         returnStatement();
     } else {

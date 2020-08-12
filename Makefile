@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -c -g
+CFLAGS = -c -ggdb
 
 OBJ = main
 
