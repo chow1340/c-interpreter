@@ -57,10 +57,16 @@ typedef enum {
     TYPE_SCRIPT
 } FunctionType;
 
+typedef struct {
+    uint8_t index;
+    bool isLocal;
+} Upvalue;
+
 typedef struct{
     struct Compiler* enclosing;
     ObjFunction* function;
     FunctionType type;
+    Upvalue upvalues[UINT8_COUNT];
     Local locals[UINT8_COUNT];
     int localCount;
     int scopeDepth; // 0 = global, 1 = first top level, 2 = second, etc...
@@ -307,6 +313,35 @@ static int resolveLocal(Compiler* compiler, Token* name) {
     return -1;
 }
 
+static int addUpValue(Compiler* compiler, uint8_t index, bool isLocal){
+    int upvalueCount = compiler->function->upvalueCount;
+    if(upvalueCount == UINT8_COUNT) {
+        error("Too many closure variables in the function");
+        return 0;
+    }
+    //Check if function already has an upvalue
+    for(int i = 0; i < upvalueCount; i++){
+        Upvalue* upvalue = &compiler->upvalues[i];
+        if(upvalue->index == index && upvalue->isLocal == isLocal){
+            return i;
+        }
+    }
+    compiler->upvalues[upvalueCount].isLocal = isLocal;
+    compiler->upvalues[upvalueCount].index = index;
+    return compiler->function->upvalueCount++;
+}
+
+//Looks for variable in surrounding functions
+static int resolveUpvalue(Compiler* compiler, Token* name){
+    if(compiler->enclosing == NULL) return -1;
+    //Look right outside the current function
+    int local = resolveLocal(compiler->enclosing, name);
+    if(local != 1) {
+        return addUpValue(compiler, (uint8_t)local, true);
+    }
+    return -1;
+}
+
 //Records existence of variable, only for locals
 static void declareVariable(){
     //Global variables are implicitly declared
@@ -432,6 +467,9 @@ static void namedVariable(Token name, bool canAssign){
     if(arg != -1) {
         getOp = OP_GET_LOCAL;
         setOp = OP_SET_LOCAL;
+    } else if((arg = resolveUpvalue(current, &name)) != -1){
+        getOp = OP_GET_UPVALUE;
+        setOp = OP_SET_UPVALUE;
     } else {
         arg = identifierConstant(&name);
         getOp = OP_GET_GLOBAL;
@@ -593,7 +631,8 @@ static void function(FunctionType type){
 
     //Create the function object;
     ObjFunction* function = endCompiler();
-    emitBytes(OP_CONSTANT, makeConstant(OBJ_VAL(function)));
+    emitBytes(OP_CLOSURE, makeConstant(OBJ_VAL(function)));
+    // emitBytes(OP_CONSTANT, makeConstant(OBJ_VAL(function)));
 }
 static void funDeclaration(){
     uint8_t global = parseVariable("Expect a function name");
